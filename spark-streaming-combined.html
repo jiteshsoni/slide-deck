@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Streaming Roadmap — Real-Time Mode & Zerobus Ingest</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,700;1,9..40,400&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --db-lava: #FF3621;
+      --db-navy: #1B3139;
+      --db-ink: #0B2026;
+      --db-teal: #1B5162;
+      --db-green: #00A972;
+      --db-oat: #F9F7F4;
+      --db-oat-medium: #EEEDE9;
+      --db-oat-dark: #DBD7CE;
+      --db-white: #FFFFFF;
+      --db-amber: #FEAB03;
+      --db-burgundy: #970F29;
+      --db-indigo: #4259FE;
+      --text-primary: var(--db-ink);
+      --text-secondary: #4A5E68;
+      --accent: var(--db-lava);
+      --font-display: 'DM Sans', sans-serif;
+      --font-body: 'DM Sans', sans-serif;
+      --font-mono: 'DM Mono', monospace;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: auto; overflow-y: scroll; scroll-snap-type: y mandatory; }
+    body { font-family: var(--font-body); background: var(--db-oat); color: var(--text-primary); overflow-x: hidden; }
+
+    .slide {
+      height: 100vh; height: 100dvh;
+      scroll-snap-align: start;
+      padding: clamp(2rem, 5vw, 4rem);
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      position: relative; overflow-y: auto;
+    }
+    .slide-content { width: 100%; max-width: 1200px; margin: 0 auto; }
+    .slide-light { background: var(--db-oat); color: var(--db-ink); }
+    .slide-white { background: var(--db-white); color: var(--db-ink); }
+    .slide-lava { background: var(--db-lava); color: white; }
+    .slide-teal { background: var(--db-teal); color: white; }
+
+    h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(2.5rem, 5vw, 4.5rem); letter-spacing: -0.02em; line-height: 1.1; }
+    h2 { font-family: var(--font-display); font-weight: 700; font-size: clamp(1.8rem, 3.5vw, 3rem); letter-spacing: -0.01em; line-height: 1.2; margin-bottom: 1.5rem; color: var(--db-ink); }
+    h3 { font-family: var(--font-display); font-weight: 500; font-size: clamp(1.2rem, 2vw, 1.5rem); line-height: 1.3; color: var(--db-ink); }
+    h4 { font-family: var(--font-display); font-weight: 600; font-size: clamp(1rem, 1.5vw, 1.2rem); line-height: 1.4; margin-bottom: 0.5rem; color: var(--db-ink); }
+    p, li { font-family: var(--font-body); font-weight: 400; font-size: clamp(1rem, 1.5vw, 1.25rem); line-height: 1.6; color: var(--db-ink); }
+    code { font-family: var(--font-mono); font-size: 0.9em; background: rgba(0,0,0,0.05); padding: 0.1em 0.3em; border-radius: 4px; }
+
+    .db-logo { height: 28px; width: auto; }
+    .accent { color: var(--db-lava); }
+    .accent-line { width: 60px; height: 4px; background: var(--db-lava); border-radius: 2px; margin: 1rem 0 1.5rem; }
+    .slide-lava .accent-line, .slide-teal .accent-line { background: white; }
+    .subtitle { font-size: clamp(1.1rem, 2vw, 1.5rem); color: var(--text-secondary); margin-top: 1rem; }
+    .slide-lava .subtitle, .slide-teal .subtitle { color: rgba(255,255,255,0.85); }
+    .section-label { font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--db-lava); margin-bottom: 1rem; }
+    .meta { font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); margin-top: 2rem; }
+
+    .tentative-badge {
+      position: absolute; top: 1.5rem; right: 1.5rem;
+      background: var(--db-amber); color: var(--db-ink);
+      padding: 0.4rem 1rem; border-radius: 4px;
+      font-size: 0.75rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+    }
+    .slide-lava .tentative-badge { background: white; color: var(--db-lava); }
+
+    /* Counter */
+    .counter-group { display: flex; gap: 3rem; justify-content: center; flex-wrap: wrap; margin: 2rem 0; }
+    .counter-item { text-align: center; }
+    .counter-value { font-family: var(--font-display); font-weight: 700; font-size: clamp(2.5rem, 6vw, 4rem); line-height: 1; color: var(--db-lava); }
+    .counter-label { font-size: 1rem; color: var(--text-secondary); margin-top: 0.5rem; }
+
+    /* Cards */
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; margin: 2rem 0; }
+    .card { padding: 1.5rem; border-radius: 12px; background: var(--db-white); border: 1px solid var(--db-oat-medium); box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+    .card h3, .card h4 { margin-bottom: 0.75rem; color: var(--db-ink); }
+    .card p { font-size: 0.95rem; color: var(--text-secondary); }
+    .card ul { padding-left: 1.2rem; margin-top: 0.5rem; }
+    .card li { font-size: 0.9rem; margin-bottom: 0.4rem; color: var(--text-secondary); }
+    .card-highlight { background: rgba(255,54,33,0.06); border-color: rgba(255,54,33,0.15); }
+    .card-warning { border-left: 4px solid var(--db-amber); }
+
+    /* Comparison Grid */
+    .comparison-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; max-width: 1000px; margin: 2rem auto; }
+    .comparison-card { padding: 1.5rem; border-radius: 12px; }
+    .comparison-card.before { background: rgba(151,15,41,0.08); border: 1px solid rgba(151,15,41,0.2); }
+    .comparison-card.after { background: rgba(0,169,114,0.08); border: 1px solid rgba(0,169,114,0.2); }
+    .comparison-card.before h3 { color: var(--db-burgundy); }
+    .comparison-card.after h3 { color: var(--db-green); }
+    .comparison-card ul { padding-left: 1.2rem; }
+    .comparison-card li { margin-bottom: 0.4rem; }
+
+    /* Two/Three Column */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: start; }
+    .three-col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; align-items: start; }
+    @media (max-width: 900px) { .two-col, .three-col, .comparison-grid { grid-template-columns: 1fr; } }
+
+    /* Bullet List */
+    .bullet-list { list-style: none; padding: 0; }
+    .bullet-list li { padding: 0.6rem 0; padding-left: 1.5rem; position: relative; border-bottom: 1px solid var(--db-oat-medium); font-size: 0.95rem; }
+    .bullet-list li::before { content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 8px; height: 8px; background: var(--db-lava); border-radius: 50%; }
+    .bullet-list li:last-child { border-bottom: none; }
+
+    /* Latency Scale */
+    .latency-bar { display: flex; border-radius: 8px; overflow: hidden; height: 48px; margin: 1rem 0; }
+    .latency-segment { display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 500; padding: 0 1rem; white-space: nowrap; }
+    .latency-segment.operational { background: var(--db-lava); color: white; flex: 2; }
+    .latency-segment.etl { background: var(--db-teal); color: white; flex: 3; }
+
+    /* Code Block */
+    .code-block { background: var(--db-ink); color: #e6e6e6; padding: 1.5rem; border-radius: 10px; font-family: var(--font-mono); font-size: 0.9rem; overflow-x: auto; margin: 1.5rem 0; }
+    .code-block .keyword { color: #ff79c6; }
+    .code-block .string { color: #f1fa8c; }
+    .code-block .comment { color: #6272a4; }
+    .code-block .function { color: #50fa7b; }
+
+    /* Diagram */
+    .diagram { display: flex; flex-direction: column; align-items: center; gap: 1rem; margin: 2rem auto; }
+    .diagram-row { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; justify-content: center; }
+    .diagram-node { padding: 1rem 1.5rem; border-radius: 10px; font-weight: 500; font-size: 0.95rem; text-align: center; min-width: 120px; }
+    .diagram-node.primary { background: var(--db-lava); color: white; }
+    .diagram-node.secondary { background: var(--db-navy); color: white; }
+    .diagram-node.accent { background: var(--db-teal); color: white; }
+    .diagram-node.green { background: var(--db-green); color: white; }
+    .diagram-node.amber { background: var(--db-amber); color: var(--db-ink); }
+    .diagram-arrow { font-size: 1.5rem; color: var(--db-oat-dark); }
+
+    /* Quote */
+    .quote-block { font-size: clamp(1.3rem, 2.5vw, 1.8rem); font-style: italic; line-height: 1.4; max-width: 800px; margin: 2rem auto; padding-left: 2rem; position: relative; }
+    .quote-block::before { content: '"'; position: absolute; left: -0.5rem; top: -0.5rem; font-size: 3rem; color: var(--db-lava); font-family: Georgia, serif; }
+
+    /* SDK Grid */
+    .sdk-grid { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; margin: 2rem 0; }
+    .sdk-badge { padding: 0.75rem 1.5rem; border-radius: 8px; font-family: var(--font-mono); font-size: 1rem; color: white; }
+
+    /* Table */
+    .data-table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; font-size: 0.95rem; }
+    .data-table th, .data-table td { padding: 1rem; text-align: left; border-bottom: 1px solid var(--db-oat-medium); color: var(--db-ink); }
+    .data-table th { font-weight: 600; background: var(--db-white); }
+
+    /* Tag */
+    .tag { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 500; }
+    .tag-green { background: rgba(0,169,114,0.15); color: #007d52; }
+    .tag-lava { background: rgba(255,54,33,0.15); color: var(--db-lava); }
+    .tag-teal { background: rgba(27,81,98,0.15); color: var(--db-teal); }
+
+    /* Discussion Card */
+    .discussion-card { background: var(--db-white); border-radius: 16px; padding: 2.5rem; max-width: 800px; margin: 2rem auto; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+    .discussion-card ul { list-style: none; padding: 0; }
+    .discussion-card li { padding: 1rem 0; border-bottom: 1px solid var(--db-oat-medium); font-size: 1.1rem; display: flex; align-items: flex-start; gap: 1rem; color: var(--db-ink); }
+    .discussion-card li:last-child { border-bottom: none; }
+    .discussion-card li::before { content: '?'; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: var(--db-lava); color: white; border-radius: 50%; font-weight: 700; font-size: 0.9rem; flex-shrink: 0; }
+
+    /* Progress & Nav */
+    .progress-bar { position: fixed; top: 0; left: 0; height: 3px; background: var(--accent); z-index: 100; transition: width 0.3s ease; }
+    .nav-dots { position: fixed; right: 1.5rem; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 6px; z-index: 100; }
+    .nav-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--db-oat-dark); border: none; cursor: pointer; transition: all 0.3s ease; padding: 0; }
+    .nav-dot.active { background: var(--accent); transform: scale(1.4); }
+
+    @media (max-width: 768px) { .nav-dots { display: none; } .slide { padding: 1.5rem; } }
+  </style>
+</head>
+<body>
+  <div class="progress-bar"></div>
+  <nav class="nav-dots"></nav>
+
+  <!-- SLIDE 1: Title -->
+  <section class="slide slide-lava" aria-label="Title">
+    <span class="tentative-badge">Tentative Plans</span>
+    <div class="slide-content" style="text-align: center;">
+      <svg class="db-logo" viewBox="0 0 713 113" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-bottom: 2rem; height: 36px;">
+        <g clip-path="url(#c1)"><path d="M98.9 46.6L52.3 72.9L2.4 44.8L0 46.1V66.5L52.3 95.9L98.9 69.7V80.5L52.3 106.8L2.4 78.7L0 80V83.5L52.3 112.9L104.5 83.5V63.1L102.1 61.8L52.3 89.8L5.6 63.6V52.8L52.3 79L104.5 49.6V29.5L101.9 28L52.3 55.9L8 31.1L52.3 6.2L88.7 26.7L91.9 24.9V22.4L52.3 0.1L0 29.5V32.7L52.3 62.1L98.9 35.8V46.6Z" fill="white"/><path d="M202.2 96.2V6.4H188.4V40C188.4 40.5 188.1 40.9 187.6 41.1C187.1 41.3 186.6 41.1 186.3 40.8C181.6 35.3 174.3 32.2 166.3 32.2C149.2 32.2 135.8 46.6 135.8 65C135.8 74 138.9 82.3 144.6 88.4C150.3 94.5 158 97.8 166.3 97.8C174.2 97.8 181.5 94.5 186.3 88.8C186.6 88.4 187.2 88.3 187.6 88.4C188.1 88.6 188.4 89 188.4 89.5V96.2H202.2ZM169.3 85.3C158.3 85.3 149.7 76.4 149.7 65C149.7 53.6 158.3 44.7 169.3 44.7C180.3 44.7 188.9 53.6 188.9 65C188.9 76.4 180.3 85.3 169.3 85.3Z" fill="white"/><path d="M276 96.1V33.7H262.3V40C262.3 40.5 262 40.9 261.5 41.1C261 41.3 260.5 41.1 260.2 40.7C255.6 35.2 248.4 32.1 240.2 32.1C223.1 32.1 209.7 46.5 209.7 64.9C209.7 83.3 223.1 97.7 240.2 97.7C248.1 97.7 255.4 94.4 260.2 88.6C260.5 88.2 261.1 88.1 261.5 88.2C262 88.4 262.3 88.8 262.3 89.3V96.1H276ZM243.3 85.3C232.3 85.3 223.7 76.4 223.7 65C223.7 53.6 232.3 44.7 243.3 44.7C254.3 44.7 262.9 53.6 262.9 65C262.9 76.4 254.3 85.3 243.3 85.3Z" fill="white"/><path d="M314.4 97.2C318.8 97.2 322.7 96.8 324.9 96.5V84.5C323.1 84.7 319.9 84.9 318 84.9C312.4 84.9 308.1 83.9 308.1 71.8V46.1C308.1 45.4 308.6 44.9 309.3 44.9H322.8V33.6H309.3C308.6 33.6 308.1 33.1 308.1 32.4V14.4H294.3V32.5C294.3 33.2 293.8 33.7 293.1 33.7H283.5V45H293.1C293.8 45 294.3 45.5 294.3 46.2V75.3C294.3 97.2 308.9 97.2 314.4 97.2Z" fill="white"/><path d="M393.3 96.2V33.7H379.6V40C379.6 40.5 379.3 40.9 378.8 41.1C378.3 41.3 377.8 41.1 377.5 40.7C372.9 35.2 365.7 32.1 357.5 32.1C340.3 32.1 327 46.5 327 65C327 83.5 340.4 97.8 357.5 97.8C365.4 97.8 372.7 94.5 377.5 88.7C377.8 88.3 378.4 88.2 378.8 88.3C379.3 88.5 379.6 88.9 379.6 89.4V96.2H393.3ZM360.6 85.3C349.6 85.3 341 76.4 341 65C341 53.6 349.6 44.7 360.6 44.7C371.6 44.7 380.2 53.6 380.2 65C380.2 76.4 371.6 85.3 360.6 85.3Z" fill="white"/><path d="M418.4 88.8C418.5 88.8 418.7 88.7 418.8 88.7C419.1 88.7 419.5 88.9 419.7 89.1C424.4 94.6 431.7 97.7 439.7 97.7C456.8 97.7 470.2 83.3 470.2 64.9C470.2 55.9 467.1 47.6 461.4 41.5C455.7 35.4 448 32.1 439.7 32.1C431.8 32.1 424.5 35.4 419.7 41.1C419.4 41.5 418.9 41.6 418.4 41.5C417.9 41.3 417.6 40.9 417.6 40.4V6.4H403.8V96.2H417.6V89.9C417.6 89.4 417.9 89 418.4 88.8ZM417 65C417 53.6 425.6 44.7 436.6 44.7C447.6 44.7 456.2 53.6 456.2 65C456.2 76.4 447.6 85.3 436.6 85.3C425.6 85.3 417 76.3 417 65Z" fill="white"/><path d="M510.1 46.5C511.4 46.5 512.6 46.6 513.4 46.8V32.6C512.9 32.5 512 32.4 511.1 32.4C503.9 32.4 497.3 36.1 493.8 42C493.5 42.5 493 42.7 492.5 42.5C492 42.4 491.6 41.9 491.6 41.4V33.7H477.9V96.3H491.7V68.7C491.7 55 498.7 46.5 510.1 46.5Z" fill="white"/><path d="M536.1 33.7H522.1V96.3H536.1V33.7Z" fill="white"/><path d="M528.9 6.5C524.2 6.5 520.4 10.3 520.4 15C520.4 19.7 524.2 23.5 528.9 23.5C533.6 23.5 537.4 19.7 537.4 15C537.4 10.3 533.6 6.5 528.9 6.5Z" fill="white"/><path d="M577.1 32.1C557.9 32.1 544 45.9 544 65C544 74.3 547.3 82.6 553.2 88.6C559.2 94.6 567.6 97.9 577 97.9C584.8 97.9 590.8 96.4 602.2 88L594.3 79.7C588.7 83.4 583.5 85.2 578.4 85.2C566.8 85.2 558.1 76.5 558.1 65C558.1 53.5 566.8 44.8 578.4 44.8C583.9 44.8 589 46.6 594.1 50.3L602.9 42C592.6 33.2 583.3 32.1 577.1 32.1Z" fill="white"/><path d="M626.5 68.7C626.7 68.5 627 68.4 627.3 68.4H627.4C627.7 68.4 628 68.6 628.3 68.8L650.4 96.2H667.4L638.8 61.6C638.4 61.1 638.4 60.4 638.9 60L665.2 33.7H648.3L625.6 56.5C625.3 56.8 624.8 56.9 624.3 56.8C623.9 56.6 623.6 56.2 623.6 55.7V6.5H609.7V96.3H623.5V71.9C623.5 71.6 623.6 71.2 623.9 71L626.5 68.7Z" fill="white"/><path d="M689.9 97.8C701.2 97.8 712.7 90.9 712.7 77.8C712.7 69.2 707.3 63.3 696.3 59.7L688.8 57.2C683.7 55.5 681.3 53.1 681.3 49.8C681.3 46 684.7 43.4 689.5 43.4C694.1 43.4 698.2 46.4 700.8 51.6L711.9 45.6C707.8 37.2 699.3 32 689.5 32C677.1 32 668.1 40 668.1 50.9C668.1 59.6 673.3 65.4 684 68.8L691.7 71.3C697.1 73 699.4 75.2 699.4 78.7C699.4 84 694.5 85.9 690.3 85.9C684.7 85.9 679.7 82.3 677.3 76.4L666 82.4C669.7 91.9 678.8 97.8 689.9 97.8Z" fill="white"/></g>
+        <defs><clipPath id="c1"><rect width="712.8" height="113" fill="white"/></clipPath></defs>
+      </svg>
+      <h1>Streaming Roadmap</h1>
+      <p class="subtitle">Real-Time Mode & Zerobus Ingest · April 2026</p>
+    </div>
+  </section>
+
+  <!-- SLIDE 2: Introduction -->
+  <section class="slide slide-white" aria-label="Introduction">
+    <div class="slide-content">
+      <div class="two-col" style="align-items: center;">
+        <div>
+          <h2 style="color: var(--db-lava);">Jitesh Soni</h2>
+          <p class="subtitle" style="margin-bottom: 1.5rem;">Canadian Data Guy</p>
+          <ul class="bullet-list">
+            <li><strong>13 Years</strong> in Data Engineering & Data Architecture</li>
+            <li>Expert in taking <strong>Streaming workloads to production</strong></li>
+            <li>Solved <strong>>150 use-cases</strong> across 100+ customers</li>
+            <li><strong>5 Years at Databricks</strong> & 6 Years at Amazon</li>
+          </ul>
+        </div>
+        <div style="text-align: center;">
+          <div class="counter-group" style="flex-direction: column; gap: 1.5rem;">
+            <div class="counter-item">
+              <div class="counter-value" data-target="150" data-prefix=">">0</div>
+              <div class="counter-label">Streaming Use Cases Solved</div>
+            </div>
+            <div class="counter-item">
+              <div class="counter-value" data-target="100" data-prefix=">">0</div>
+              <div class="counter-label">Customers Helped</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 3: The Problem -->
+  <section class="slide slide-light" aria-label="The Problem">
+    <div class="slide-content">
+      <p class="section-label">Part 1: Real-Time Mode</p>
+      <h2>"I'm tired of hearing <span class="accent">Spark isn't fast enough</span>"</h2>
+      <div class="accent-line"></div>
+      <div class="quote-block">
+        "Maintainability beats shiny tools. Just because one person has energy for the newest tool doesn't mean the whole team should support that one-off use case."
+      </div>
+      <p style="color: var(--text-secondary); margin-top: 2rem;">
+        A maintainable solution the whole team understands beats the fastest tool. Now Spark can do both.
+      </p>
+    </div>
+  </section>
+
+  <!-- SLIDE 4: Stream Processing Overview -->
+  <section class="slide slide-white" aria-label="Stream Processing Overview">
+    <span class="tentative-badge">Tentative Plans</span>
+    <div class="slide-content">
+      <h2>Stream Processing Overview</h2>
+      <div class="accent-line"></div>
+      <div class="latency-bar">
+        <div class="latency-segment operational"><strong>Operational Use Cases</strong></div>
+        <div class="latency-segment etl"><strong>Streaming Ingestion & ETL</strong></div>
+      </div>
+      <div style="display: flex; justify-content: space-between; margin: 1rem 0; flex-wrap: wrap; gap: 1rem;">
+        <span><strong class="accent">40ms</strong> → <strong class="accent">1s</strong></span>
+        <span><strong style="color: var(--db-teal);">Seconds</strong> → <strong style="color: var(--db-teal);">Minutes</strong></span>
+      </div>
+      <div class="two-col" style="margin-top: 2rem;">
+        <div class="card card-highlight">
+          <h4 style="color: var(--db-lava);">Recent expansion via Real-Time Mode</h4>
+          <p>Fraud detection, personalization, IoT anomalies, security signals</p>
+        </div>
+        <div class="card">
+          <h4 style="color: var(--db-teal);">Traditional focus of Spark Streaming</h4>
+          <p>ETL, analytics, BI, offline model training</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 5: Two Modes -->
+  <section class="slide slide-light" aria-label="Two Modes">
+    <div class="slide-content">
+      <h2>Two Modes of Spark Streaming</h2>
+      <div class="accent-line"></div>
+      <div class="comparison-grid">
+        <div class="comparison-card before">
+          <h3>Microbatch Mode</h3>
+          <ul>
+            <li>Traditional approach</li>
+            <li><strong>1-2 second</strong> latency</li>
+            <li>More cost effective</li>
+            <li>Great for most use cases</li>
+            <li>Use <code>trigger(processingTime="1 second")</code></li>
+          </ul>
+        </div>
+        <div class="comparison-card after">
+          <h3>Real-Time Mode (RTM)</h3>
+          <ul>
+            <li><strong>Sub-second</strong> latency</li>
+            <li>P99 latency as low as <strong>5ms</strong></li>
+            <li>Workers pre-allocated</li>
+            <li>No scheduling wait</li>
+            <li>Use <code>trigger(realTime="1 minutes")</code></li>
+          </ul>
+        </div>
+      </div>
+      <p style="text-align: center; color: var(--text-secondary); margin-top: 1rem;">DBR 16.4 LTS+ · Public Preview</p>
+    </div>
+  </section>
+
+  <!-- SLIDE 6: Flip of a Switch -->
+  <section class="slide slide-white" aria-label="Flip of a Switch">
+    <div class="slide-content">
+      <h2>It's Just the <span class="accent">Flip of a Switch</span></h2>
+      <div class="accent-line"></div>
+      <p style="margin-bottom: 1.5rem;">Your code doesn't change. Only the trigger configuration:</p>
+      <div class="code-block">
+        <span class="comment"># Microbatch Mode (1-2 second latency)</span><br>
+        .trigger(<span class="function">processingTime</span>=<span class="string">"1 second"</span>)<br><br>
+        <span class="comment"># Real-Time Mode (sub-second latency)</span><br>
+        .trigger(<span class="function">realTime</span>=<span class="string">"1 minutes"</span>)
+      </div>
+      <p style="margin-top: 1.5rem; color: var(--text-secondary);">
+        Write your application normally. Decide at the end whether you need real-time mode or not.
+      </p>
+    </div>
+  </section>
+
+  <!-- SLIDE 7: RTM Details -->
+  <section class="slide slide-white" aria-label="RTM Details">
+    <span class="tentative-badge">Tentative Plans</span>
+    <div class="slide-content">
+      <h2>Real-Time Mode — <span class="accent">Details</span></h2>
+      <div class="accent-line"></div>
+      <div class="three-col">
+        <div class="card">
+          <h4>What is Real-Time Mode?</h4>
+          <ul>
+            <li>New <strong>trigger type</strong> with <strong>millisecond</strong> latency</li>
+            <li>Workers pre-allocated</li>
+            <li><strong>No code changes</strong> required</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h4>What Have We Launched?</h4>
+          <ul>
+            <li><strong>DBR 16.4+</strong> · Scala, Python</li>
+            <li>Sources: Kafka, MSK, Event Hub, Kinesis</li>
+            <li>Sinks: Kafka, Event Hub, ForEach</li>
+            <li>Stateless, aggregations, windowing, stream-static join</li>
+          </ul>
+        </div>
+        <div class="card card-highlight">
+          <h4 style="color: var(--db-lava);">Future Roadmap</h4>
+          <ul>
+            <li>Native <strong>JDBC sink</strong> (Postgres)</li>
+            <li>Continuous window aggregation</li>
+            <li>RTM in <strong>Spark Declarative Pipelines</strong></li>
+            <li>RTM in <strong>OSS</strong> Apache Spark</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 9: Section Break - Zerobus -->
+  <section class="slide slide-teal" aria-label="Zerobus Section">
+    <div class="slide-content" style="text-align: center;">
+      <p class="section-label" style="color: rgba(255,255,255,0.7);">Part 2</p>
+      <h1 style="color: white;">Zerobus Ingest</h1>
+      <div class="accent-line" style="margin: 1.5rem auto;"></div>
+      <p style="font-size: 1.5rem; color: rgba(255,255,255,0.9);">"The Best Bus Is <span class="accent">No Bus</span>"</p>
+    </div>
+  </section>
+
+  <!-- SLIDE 10: Kafka Overhead -->
+  <section class="slide slide-white" aria-label="Kafka Overhead">
+    <div class="slide-content">
+      <h2>The Kafka <span class="accent">Overhead</span></h2>
+      <div class="accent-line"></div>
+      <div class="card-grid">
+        <div class="card">
+          <h3>Infrastructure Complexity</h3>
+          <p>Manage clusters, configure connectors, monitor pipelines</p>
+        </div>
+        <div class="card">
+          <h3>Capacity Planning</h3>
+          <p>Topics, partitions, replication factors, retention periods</p>
+        </div>
+        <div class="card">
+          <h3>Dual Cost</h3>
+          <p>Pay for Kafka + pay for the job that moves data to Delta</p>
+        </div>
+        <div class="card">
+          <h3>Expertise Required</h3>
+          <p>Kafka skills command premium salaries</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 11: Architecture -->
+  <section class="slide slide-light" aria-label="Architecture">
+    <div class="slide-content">
+      <h2>Before & After Architecture</h2>
+      <div class="accent-line"></div>
+      <div class="comparison-grid" style="max-width: 900px;">
+        <div>
+          <h3 style="color: var(--db-burgundy); margin-bottom: 1rem;">Before: Traditional</h3>
+          <div class="diagram">
+            <div class="diagram-row">
+              <div class="diagram-node secondary">App</div>
+              <span class="diagram-arrow">→</span>
+              <div class="diagram-node amber">Kafka</div>
+              <span class="diagram-arrow">→</span>
+              <div class="diagram-node accent">Job</div>
+              <span class="diagram-arrow">→</span>
+              <div class="diagram-node green">Delta</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <h3 style="color: var(--db-green); margin-bottom: 1rem;">After: Zerobus</h3>
+          <div class="diagram">
+            <div class="diagram-row">
+              <div class="diagram-node secondary">App</div>
+              <span class="diagram-arrow">→</span>
+              <div class="diagram-node primary">Zerobus</div>
+              <span class="diagram-arrow">→</span>
+              <div class="diagram-node green">Delta</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p style="text-align: center; color: var(--text-secondary); margin-top: 1.5rem;">No producer/consumer. Just API + direct write to lakehouse.</p>
+    </div>
+  </section>
+
+  <!-- SLIDE 12: Zerobus Performance -->
+  <section class="slide slide-white" aria-label="Zerobus Performance">
+    <div class="slide-content" style="text-align: center;">
+      <h2><span class="accent">Zerobus</span> Performance</h2>
+      <div class="accent-line" style="margin: 1rem auto;"></div>
+      <div class="counter-group">
+        <div class="counter-item">
+          <div class="counter-value" data-target="100" data-suffix="MB/s">0</div>
+          <div class="counter-label">Per-Stream Throughput</div>
+        </div>
+        <div class="counter-item">
+          <div class="counter-value" data-target="15000">0</div>
+          <div class="counter-label">rows/sec per stream</div>
+        </div>
+        <div class="counter-item">
+          <div class="counter-value" data-target="5" data-prefix="~" data-suffix="s">0</div>
+          <div class="counter-label">Ingestion Latency</div>
+        </div>
+      </div>
+      <div class="card-grid" style="margin-top: 2rem;">
+        <div class="card"><h3>🔥 No Message Bus</h3><p>Stream directly from app to Delta tables</p></div>
+        <div class="card"><h3>🚀 gRPC Protocol</h3><p>SDKs for Python, Java, Go, TypeScript, Rust</p></div>
+        <div class="card"><h3>🔒 Unity Catalog</h3><p>Unified governance, schema validation at ingestion</p></div>
+      </div>
+      <p style="margin-top: 2rem;"><span class="tag tag-green">GA February 2026</span></p>
+    </div>
+  </section>
+
+  <!-- SLIDE 13: SDKs -->
+  <section class="slide slide-light" aria-label="SDKs">
+    <div class="slide-content" style="text-align: center;">
+      <h2>SDKs for <span class="accent">Every Language</span></h2>
+      <div class="accent-line" style="margin: 1rem auto;"></div>
+      <div class="sdk-grid">
+        <div class="sdk-badge" style="background: var(--db-navy);">Python</div>
+        <div class="sdk-badge" style="background: var(--db-lava);">Rust</div>
+        <div class="sdk-badge" style="background: var(--db-teal);">Java</div>
+        <div class="sdk-badge" style="background: var(--db-green);">Go</div>
+        <div class="sdk-badge" style="background: var(--db-indigo);">TypeScript</div>
+      </div>
+      <div class="code-block" style="max-width: 600px; margin: 2rem auto; text-align: left;">
+        <span class="keyword">import</span> zerobus<br><br>
+        stream = zerobus.create_stream(table=<span class="string">"catalog.db.events"</span>)<br>
+        stream.ingest_record(json_data)<br>
+        stream.wait_for_ack()  <span class="comment"># Optional</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 14: When Kafka Wins -->
+  <section class="slide slide-white" aria-label="When Kafka Wins">
+    <div class="slide-content">
+      <h2>When <span class="accent">Kafka Still Wins</span></h2>
+      <div class="accent-line"></div>
+      <div class="card-grid">
+        <div class="card card-warning">
+          <h3>Exactly-Once Semantics</h3>
+          <p>Financial transactions, order processing. Zerobus is at-least-once (exactly-once on roadmap).</p>
+        </div>
+        <div class="card card-warning">
+          <h3>Fan-Out Patterns</h3>
+          <p>Multiple consumers reading the same stream with different processing logic.</p>
+        </div>
+        <div class="card card-warning">
+          <h3>Message Retention & Replay</h3>
+          <p>Need to replay messages? Kafka's retention model is essential.</p>
+        </div>
+      </div>
+      <p style="text-align: center; color: var(--text-secondary); margin-top: 1.5rem;">Zerobus is for direct lakehouse writes. Multi-consumer or replay? Use Kafka.</p>
+    </div>
+  </section>
+
+  <!-- SLIDE 15: ETL Roadmap -->
+  <section class="slide slide-light" aria-label="ETL Roadmap">
+    <span class="tentative-badge">Tentative Plans</span>
+    <div class="slide-content">
+      <h2>Streaming ETL — <span style="color: var(--db-teal);">Future Roadmap</span></h2>
+      <div class="accent-line"></div>
+      <table class="data-table">
+        <thead><tr><th>Initiative</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Async IO</strong></td><td>Asynchronous, non-blocking function calls in streaming transforms</td></tr>
+          <tr><td><strong>Multi-sink</strong></td><td>Single query outputs to multiple destinations</td></tr>
+          <tr><td><strong>Demultiplexing</strong></td><td>Single source → multiple Delta tables based on field value</td></tr>
+          <tr><td><strong>Query Evolution</strong></td><td>Add/remove sources, switch types, add stateful operators without losing state</td></tr>
+          <tr><td><strong>Rewind & Replay</strong></td><td>Rewind to specific batch when dealing with bugs, bad data, or corrupted checkpoints</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- SLIDE 16: Discussion -->
+  <section class="slide slide-white" aria-label="Discussion">
+    <span class="tentative-badge">Tentative Plans</span>
+    <div class="slide-content">
+      <h2>Discussion Questions</h2>
+      <div class="accent-line"></div>
+      <div class="discussion-card">
+        <ul>
+          <li>What are you using Spark streaming for today?</li>
+          <li>What feature requests do you have?</li>
+          <li>Are there blockers preventing you from using Spark for specific streaming use cases?</li>
+          <li>From the roadmap, which features interest you most?</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 17: Closing -->
+  <section class="slide slide-light" aria-label="Closing">
+    <div class="slide-content" style="text-align: center;">
+      <h2>Key Takeaways</h2>
+      <div class="accent-line" style="margin: 1rem auto;"></div>
+      <div class="card-grid" style="max-width: 900px; margin: 2rem auto;">
+        <div class="card">
+          <h3><span class="accent">Real-Time Mode</span></h3>
+          <p>Sub-millisecond Spark Streaming. Just flip the trigger. DBR 16.4+.</p>
+        </div>
+        <div class="card">
+          <h3><span class="accent">Zerobus Ingest</span></h3>
+          <p>The best bus is no bus. Direct writes from edge to Delta. GA Feb 2026.</p>
+        </div>
+      </div>
+      <div class="quote-block" style="margin-top: 2rem;">"Maintainability beats shiny tools"</div>
+      <p class="meta" style="margin-top: 3rem;">Jitesh Soni | Canadian Data Guy | docs.databricks.com/streaming</p>
+    </div>
+  </section>
+
+  <script>
+    class SlidePresentation {
+      constructor() { this.slides = document.querySelectorAll('.slide'); this.progressBar = document.querySelector('.progress-bar'); this.navDots = document.querySelector('.nav-dots'); this.currentSlide = 0; this.init(); }
+      init() { this.createNavDots(); this.setupIntersectionObserver(); this.setupKeyboardNav(); this.setupTouchNav(); this.setupWheelNav(); this.updateProgress(); }
+      createNavDots() { this.slides.forEach((_, i) => { const dot = document.createElement('button'); dot.className = 'nav-dot' + (i === 0 ? ' active' : ''); dot.setAttribute('aria-label', `Go to slide ${i + 1}`); dot.addEventListener('click', () => this.goToSlide(i)); this.navDots.appendChild(dot); }); }
+      setupIntersectionObserver() { const observer = new IntersectionObserver((entries) => { entries.forEach(entry => { if (entry.isIntersecting) { entry.target.classList.add('visible'); const index = [...this.slides].indexOf(entry.target); this.currentSlide = index; this.updateDots(); this.updateProgress(); this.animateCounters(entry.target); } }); }, { threshold: 0.5 }); this.slides.forEach(slide => observer.observe(slide)); }
+      animateCounters(slide) { slide.querySelectorAll('.counter-value[data-target]:not(.counted)').forEach(el => { el.classList.add('counted'); const target = parseInt(el.dataset.target); const suffix = el.dataset.suffix || ''; const prefix = el.dataset.prefix || ''; const duration = 1500; const start = performance.now(); const animate = (now) => { const progress = Math.min((now - start) / duration, 1); const eased = 1 - Math.pow(1 - progress, 3); el.textContent = prefix + Math.round(target * eased).toLocaleString() + suffix; if (progress < 1) requestAnimationFrame(animate); }; requestAnimationFrame(animate); }); }
+      setupKeyboardNav() { document.addEventListener('keydown', (e) => { if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); this.goToSlide(this.currentSlide + 1); } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { e.preventDefault(); this.goToSlide(this.currentSlide - 1); } }); }
+      setupTouchNav() { let startY = 0; document.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, { passive: true }); document.addEventListener('touchend', (e) => { const diff = startY - e.changedTouches[0].clientY; if (Math.abs(diff) > 50) { this.goToSlide(this.currentSlide + (diff > 0 ? 1 : -1)); } }, { passive: true }); }
+      setupWheelNav() { let lastScroll = 0; document.addEventListener('wheel', (e) => { const now = Date.now(); if (now - lastScroll < 800) return; lastScroll = now; this.goToSlide(this.currentSlide + (e.deltaY > 0 ? 1 : -1)); }, { passive: true }); }
+      goToSlide(index) { const target = Math.max(0, Math.min(index, this.slides.length - 1)); this.slides[target].scrollIntoView({ behavior: 'instant' }); }
+      updateDots() { this.navDots.querySelectorAll('.nav-dot').forEach((dot, i) => { dot.classList.toggle('active', i === this.currentSlide); }); }
+      updateProgress() { const pct = ((this.currentSlide + 1) / this.slides.length) * 100; this.progressBar.style.width = pct + '%'; }
+    }
+    new SlidePresentation();
+  </script>
+</body>
+</html>
