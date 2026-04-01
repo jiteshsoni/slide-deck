@@ -162,6 +162,13 @@
     .nav-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--db-oat-dark); border: none; cursor: pointer; transition: all 0.3s ease; padding: 0; }
     .nav-dot.active { background: var(--accent); transform: scale(1.4); }
 
+    /* Feature Detail Styles */
+    .feature-icon { font-size: 3rem; margin-bottom: 1rem; }
+    .use-case-list { list-style: none; padding: 0; margin-top: 1.5rem; }
+    .use-case-list li { padding: 0.75rem 0; padding-left: 2rem; position: relative; border-bottom: 1px solid var(--db-oat-medium); }
+    .use-case-list li::before { content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 10px; height: 10px; background: var(--db-green); border-radius: 50%; }
+    .use-case-list li:last-child { border-bottom: none; }
+
     @media (max-width: 768px) { .nav-dots { display: none; } .slide { padding: 1.5rem; } }
   </style>
 </head>
@@ -340,7 +347,7 @@
     </div>
   </section>
 
-  <!-- SLIDE 9: Section Break - Zerobus -->
+  <!-- SLIDE 8: Section Break - Zerobus -->
   <section class="slide slide-teal" aria-label="Zerobus Section">
     <div class="slide-content" style="text-align: center;">
       <p class="section-label" style="color: rgba(255,255,255,0.7);">Part 2</p>
@@ -350,7 +357,7 @@
     </div>
   </section>
 
-  <!-- SLIDE 10: Kafka Overhead -->
+  <!-- SLIDE 9: Kafka Overhead -->
   <section class="slide slide-white" aria-label="Kafka Overhead">
     <div class="slide-content">
       <h2>The Kafka <span class="accent">Overhead</span></h2>
@@ -376,7 +383,7 @@
     </div>
   </section>
 
-  <!-- SLIDE 11: Architecture -->
+  <!-- SLIDE 10: Architecture -->
   <section class="slide slide-light" aria-label="Architecture">
     <div class="slide-content">
       <h2>Before & After Architecture</h2>
@@ -413,7 +420,7 @@
     </div>
   </section>
 
-  <!-- SLIDE 12: Zerobus Performance -->
+  <!-- SLIDE 11: Zerobus Performance -->
   <section class="slide slide-white" aria-label="Zerobus Performance">
     <div class="slide-content" style="text-align: center;">
       <h2><span class="accent">Zerobus</span> Performance</h2>
@@ -433,15 +440,15 @@
         </div>
       </div>
       <div class="card-grid" style="margin-top: 2rem;">
-        <div class="card"><h3>🔥 No Message Bus</h3><p>Stream directly from app to Delta tables</p></div>
-        <div class="card"><h3>🚀 gRPC Protocol</h3><p>SDKs for Python, Java, Go, TypeScript, Rust</p></div>
-        <div class="card"><h3>🔒 Unity Catalog</h3><p>Unified governance, schema validation at ingestion</p></div>
+        <div class="card"><h3>No Message Bus</h3><p>Stream directly from app to Delta tables</p></div>
+        <div class="card"><h3>gRPC Protocol</h3><p>SDKs for Python, Java, Go, TypeScript, Rust</p></div>
+        <div class="card"><h3>Unity Catalog</h3><p>Unified governance, schema validation at ingestion</p></div>
       </div>
       <p style="margin-top: 2rem;"><span class="tag tag-green">GA February 2026</span></p>
     </div>
   </section>
 
-  <!-- SLIDE 13: SDKs -->
+  <!-- SLIDE 12: SDKs -->
   <section class="slide slide-light" aria-label="SDKs">
     <div class="slide-content" style="text-align: center;">
       <h2>SDKs for <span class="accent">Every Language</span></h2>
@@ -462,7 +469,7 @@
     </div>
   </section>
 
-  <!-- SLIDE 14: When Kafka Wins -->
+  <!-- SLIDE 13: When Kafka Wins -->
   <section class="slide slide-white" aria-label="When Kafka Wins">
     <div class="slide-content">
       <h2>When <span class="accent">Kafka Still Wins</span></h2>
@@ -485,7 +492,7 @@
     </div>
   </section>
 
-  <!-- SLIDE 15: ETL Roadmap -->
+  <!-- SLIDE 14: ETL Roadmap Overview -->
   <section class="slide slide-light" aria-label="ETL Roadmap">
     <span class="tentative-badge">Tentative Plans</span>
     <div class="slide-content">
@@ -504,7 +511,186 @@
     </div>
   </section>
 
-  <!-- SLIDE 16: Discussion -->
+  <!-- SLIDE 15: Async IO Deep Dive -->
+  <section class="slide slide-white" aria-label="Async IO">
+    <span class="tentative-badge">Future Roadmap</span>
+    <div class="slide-content">
+      <p class="section-label">Streaming ETL Feature</p>
+      <h2><span class="accent">Async IO</span></h2>
+      <div class="accent-line"></div>
+      <p style="font-size: 1.2rem; margin-bottom: 2rem;">Asynchronous, non-blocking function calls in streaming transforms</p>
+      <div class="two-col">
+        <div>
+          <h3 style="margin-bottom: 1rem;">The Problem Today</h3>
+          <div class="card" style="background: rgba(151,15,41,0.05);">
+            <p>When you call an external service in a streaming UDF (database lookup, REST API, ML inference), each call <strong>blocks the executor thread</strong> until it completes. This serializes I/O operations and limits throughput.</p>
+          </div>
+        </div>
+        <div>
+          <h3 style="margin-bottom: 1rem;">With Async IO</h3>
+          <div class="card card-highlight">
+            <ul>
+              <li>Multiple requests can be <strong>in-flight simultaneously</strong></li>
+              <li>Throughput improves dramatically for I/O-bound operations</li>
+              <li>Streaming engine continues processing while waiting for responses</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <h4 style="margin-top: 2rem; margin-bottom: 0.5rem;">Use Cases</h4>
+      <ul class="use-case-list">
+        <li>Enriching streaming events with customer data from an external database</li>
+        <li>Calling an ML endpoint for real-time scoring</li>
+        <li>Fetching product details from a REST API during order processing</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- SLIDE 16: Multi-sink Deep Dive -->
+  <section class="slide slide-light" aria-label="Multi-sink">
+    <span class="tentative-badge">Future Roadmap</span>
+    <div class="slide-content">
+      <p class="section-label">Streaming ETL Feature</p>
+      <h2><span class="accent">Multi-sink</span></h2>
+      <div class="accent-line"></div>
+      <p style="font-size: 1.2rem; margin-bottom: 2rem;">Single query outputs to multiple destinations</p>
+      <div class="comparison-grid">
+        <div class="comparison-card before">
+          <h3>Today: Multiple Queries</h3>
+          <ul>
+            <li>Each <code>writeStream</code> can only write to <strong>one sink</strong></li>
+            <li>Writing to Delta + Kafka = run <strong>two queries</strong></li>
+            <li>Duplicate computation and resource consumption</li>
+            <li>Consistency challenges across sinks</li>
+          </ul>
+        </div>
+        <div class="comparison-card after">
+          <h3>With Multi-sink</h3>
+          <ul>
+            <li>Single query writes to <strong>multiple destinations</strong> atomically</li>
+            <li>Compute transformation <strong>once</strong></li>
+            <li>Reduced resource consumption</li>
+            <li>Consistent exactly-once semantics across all sinks</li>
+          </ul>
+        </div>
+      </div>
+      <h4 style="margin-top: 2rem; margin-bottom: 0.5rem;">Use Cases</h4>
+      <ul class="use-case-list">
+        <li>Writing processed events to both a Delta Lake table for analytics and a Kafka topic for downstream real-time consumers</li>
+        <li>Streaming to a data warehouse while simultaneously updating a cache layer</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- SLIDE 17: Demultiplexing Deep Dive -->
+  <section class="slide slide-white" aria-label="Demultiplexing">
+    <span class="tentative-badge">Future Roadmap</span>
+    <div class="slide-content">
+      <p class="section-label">Streaming ETL Feature</p>
+      <h2><span class="accent">Demultiplexing</span></h2>
+      <div class="accent-line"></div>
+      <p style="font-size: 1.2rem; margin-bottom: 2rem;">Single source → multiple Delta tables based on field value</p>
+      <div class="diagram" style="margin: 2rem auto;">
+        <div class="diagram-row">
+          <div class="diagram-node secondary">Single Kafka Topic</div>
+          <span class="diagram-arrow">→</span>
+          <div class="diagram-node primary">Demux</div>
+          <span class="diagram-arrow">→</span>
+          <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <div class="diagram-node green" style="min-width: 160px;">clicks_table</div>
+            <div class="diagram-node green" style="min-width: 160px;">purchases_table</div>
+            <div class="diagram-node green" style="min-width: 160px;">views_table</div>
+          </div>
+        </div>
+      </div>
+      <div class="two-col" style="margin-top: 2rem;">
+        <div class="card" style="background: rgba(151,15,41,0.05);">
+          <h4>Today's Approach</h4>
+          <p>Run <strong>separate queries with filters</strong> for each destination table — inefficient and duplicates processing.</p>
+        </div>
+        <div class="card card-highlight">
+          <h4>With Demultiplexing</h4>
+          <p>Route records in a <strong>single pass</strong> with proper exactly-once guarantees per destination table.</p>
+        </div>
+      </div>
+      <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">Use Case</h4>
+      <ul class="use-case-list">
+        <li>A single Kafka topic with mixed event types (clicks, purchases, views) that need to land in separate tables for different teams</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- SLIDE 18: Query Evolution Deep Dive -->
+  <section class="slide slide-light" aria-label="Query Evolution">
+    <span class="tentative-badge">Future Roadmap</span>
+    <div class="slide-content">
+      <p class="section-label">Streaming ETL Feature</p>
+      <h2><span class="accent">Query Evolution</span></h2>
+      <div class="accent-line"></div>
+      <p style="font-size: 1.2rem; margin-bottom: 2rem;">Add/remove sources, switch types, add stateful operators without losing state</p>
+      <div class="card-grid">
+        <div class="card card-warning">
+          <h4>Today's Pain Point</h4>
+          <p>Changing query logic often requires <strong>restarting from scratch</strong>, losing all accumulated state (aggregations, watermarks, session windows).</p>
+        </div>
+        <div class="card card-highlight">
+          <h4>Adding New Sources</h4>
+          <p>Add new source tables <strong>without checkpoint corruption</strong>.</p>
+        </div>
+        <div class="card card-highlight">
+          <h4>Mode Switching</h4>
+          <p>Switch from append mode to update mode <strong>seamlessly</strong>.</p>
+        </div>
+        <div class="card card-highlight">
+          <h4>Add Stateful Operators</h4>
+          <p>Add aggregations, deduplication to existing queries <strong>preserving state</strong>.</p>
+        </div>
+      </div>
+      <h4 style="margin-top: 2rem; margin-bottom: 0.5rem;">Use Case</h4>
+      <ul class="use-case-list">
+        <li>Your streaming job does simple transformations, and later you need to add a windowed aggregation — without losing the existing checkpoint and starting over</li>
+        <li>Schema evolution while preserving accumulated state</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- SLIDE 19: Rewind & Replay Deep Dive -->
+  <section class="slide slide-white" aria-label="Rewind and Replay">
+    <span class="tentative-badge">Future Roadmap</span>
+    <div class="slide-content">
+      <p class="section-label">Streaming ETL Feature</p>
+      <h2><span class="accent">Rewind & Replay</span></h2>
+      <div class="accent-line"></div>
+      <p style="font-size: 1.2rem; margin-bottom: 2rem;">Rewind to specific batch when dealing with bugs, bad data, or corrupted checkpoints</p>
+      <div class="comparison-grid">
+        <div class="comparison-card before">
+          <h3>Today's Limited Options</h3>
+          <ul>
+            <li>Bug in production? Corrupted data?</li>
+            <li>Often requires <strong>checkpoint deletion</strong></li>
+            <li>Full reprocessing from the beginning</li>
+            <li>Hours or days of lost progress</li>
+          </ul>
+        </div>
+        <div class="comparison-card after">
+          <h3>With Rewind & Replay</h3>
+          <ul>
+            <li><strong>Roll back</strong> to a specific batch/offset</li>
+            <li>Reprocess data from that point forward</li>
+            <li>Recover from checkpoint corruption</li>
+            <li>Test fixes by replaying problematic batches</li>
+          </ul>
+        </div>
+      </div>
+      <h4 style="margin-top: 2rem; margin-bottom: 0.5rem;">Use Case</h4>
+      <ul class="use-case-list">
+        <li>A bug in production caused incorrect results for batches 1000-1050. Instead of reprocessing everything, <strong>rewind to batch 999</strong> and replay with the fixed code.</li>
+        <li>Bad data injected at a specific point — rewind and skip or filter it out</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- SLIDE 20: Discussion -->
   <section class="slide slide-white" aria-label="Discussion">
     <span class="tentative-badge">Tentative Plans</span>
     <div class="slide-content">
@@ -521,7 +707,7 @@
     </div>
   </section>
 
-  <!-- SLIDE 17: Closing -->
+  <!-- SLIDE 21: Closing -->
   <section class="slide slide-light" aria-label="Closing">
     <div class="slide-content" style="text-align: center;">
       <h2>Key Takeaways</h2>
