@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GDPR Encryption in the Lakehouse</title>
+<style>
+:root {
+  --bg:#f5f0e8; --card:#fffdf8; --accent:#b5651d; --accent2:#7a9e7e;
+  --red:#c0392b; --text:#2c2416; --muted:#7a6e60; --border:#ddd5c0; --code-bg:#ede8de;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Georgia',serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+
+/* PROGRESS */
+#progress-bar{height:4px;background:var(--border);position:fixed;top:0;left:0;right:0;z-index:100;}
+#progress-fill{height:100%;background:var(--accent);transition:width .5s cubic-bezier(.4,0,.2,1);}
+#slide-counter{position:fixed;bottom:18px;right:24px;font-size:13px;color:var(--muted);font-family:monospace;z-index:100;}
+#nav{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:12px;z-index:100;}
+#nav button{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:6px 18px;font-size:18px;cursor:pointer;color:var(--accent);transition:background .2s,transform .1s;}
+#nav button:hover{background:var(--border);}
+#nav button:active{transform:scale(.95);}
+
+/* DECK */
+.deck{position:relative;flex:1;}
+.slide{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:60px 80px;opacity:0;pointer-events:none;text-align:center;transform:translateY(30px);transition:opacity .45s ease, transform .45s ease;}
+.slide.active{opacity:1;pointer-events:auto;transform:translateY(0);}
+.slide.exit{opacity:0;transform:translateY(-30px);}
+.slide.left-align{align-items:flex-start;text-align:left;}
+
+/* ANIMATED CHILDREN — stagger on .active */
+.slide.active .anim-item{animation:fadeUp .5s ease forwards;}
+.anim-item{opacity:0;}
+.anim-item:nth-child(1){animation-delay:.05s;}
+.anim-item:nth-child(2){animation-delay:.15s;}
+.anim-item:nth-child(3){animation-delay:.25s;}
+.anim-item:nth-child(4){animation-delay:.35s;}
+.anim-item:nth-child(5){animation-delay:.45s;}
+.anim-item:nth-child(6){animation-delay:.55s;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px);}to{opacity:1;transform:translateY(0);}}
+
+/* PULSE */
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(181,101,29,.3);}50%{box-shadow:0 0 0 8px rgba(181,101,29,0);}}
+@keyframes pulseGreen{0%,100%{box-shadow:0 0 0 0 rgba(122,158,126,.3);}50%{box-shadow:0 0 0 8px rgba(122,158,126,0);}}
+@keyframes shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
+@keyframes flow{0%{stroke-dashoffset:20;}100%{stroke-dashoffset:0;}}
+@keyframes countUp{from{opacity:0;transform:scale(.7);}to{opacity:1;transform:scale(1);}}
+@keyframes drawLine{from{stroke-dashoffset:200;}to{stroke-dashoffset:0;}}
+@keyframes popIn{from{opacity:0;transform:scale(.8);}to{opacity:1;transform:scale(1);}}
+@keyframes slideRight{from{opacity:0;transform:translateX(-20px);}to{opacity:1;transform:translateX(0);}}
+@keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-8px);}}
+
+/* CANVAS BG */
+#bg-canvas{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.35;}
+.deck,.slide{z-index:1;}
+
+/* TYPE */
+.label{font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:var(--accent);font-family:monospace;margin-bottom:14px;}
+h1{font-size:50px;line-height:1.15;color:var(--text);}
+h2{font-size:34px;line-height:1.2;color:var(--text);margin-bottom:20px;}
+h3{font-size:19px;color:var(--accent);margin-bottom:8px;}
+p,li{font-size:17px;line-height:1.7;color:var(--text);max-width:820px;}
+.subtitle{font-size:19px;color:var(--muted);margin-top:16px;max-width:620px;}
+ul{list-style:none;padding:0;}
+ul li::before{content:"→ ";color:var(--accent);font-weight:bold;}
+ul li{margin-bottom:10px;}
+
+/* CARDS */
+.card-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:24px;width:100%;max-width:860px;}
+.card-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-top:22px;width:100%;max-width:880px;}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px 26px;text-align:left;transition:transform .25s,box-shadow .25s;}
+.card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(44,36,22,.08);}
+.card.highlight{border-color:var(--accent);}
+.card.danger{border-color:var(--red);}
+.card h3{margin-bottom:10px;}
+.card p,.card li{font-size:15px;}
+.tag{display:inline-block;background:var(--accent);color:#fff;font-size:11px;letter-spacing:1px;text-transform:uppercase;border-radius:4px;padding:2px 8px;margin-bottom:10px;font-family:monospace;}
+.tag.green{background:var(--accent2);}
+.tag.red{background:var(--red);}
+
+/* CODE */
+.code-block{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;font-family:monospace;font-size:14px;text-align:left;width:100%;max-width:840px;line-height:1.7;margin-top:16px;color:var(--text);}
+.code-block .k{color:#8b3a62;font-weight:bold;}
+.code-block .fn{color:#7a6e00;}
+.code-block .cm{color:#999;font-style:italic;}
+
+/* PIPELINE */
+.pipeline{display:flex;align-items:center;margin-top:28px;flex-wrap:wrap;justify-content:center;}
+.pipe-step{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 20px;font-size:14px;text-align:center;min-width:130px;transition:transform .3s,border-color .3s,background .3s;}
+.pipe-step .ps-label{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:4px;font-family:monospace;}
+.pipe-step .ps-name{font-size:16px;font-weight:bold;color:var(--text);}
+.pipe-step.active-step{border-color:var(--accent);background:#fdf6ee;}
+.pipe-step.red-step{border-color:var(--red);background:#fff0f0;}
+.pipe-arrow{font-size:22px;color:var(--accent);padding:0 8px;}
+
+/* CALLOUT */
+.callout{background:#fdf6ee;border-left:4px solid var(--accent);border-radius:0 8px 8px 0;padding:14px 20px;margin-top:18px;max-width:840px;text-align:left;}
+.callout.danger{background:#fff5f5;border-color:var(--red);}
+.callout p{font-size:15px;color:var(--muted);}
+
+/* TITLE SLIDE */
+#slide-1{background:var(--bg);}
+.big-icon{font-size:56px;margin-bottom:18px;animation:float 4s ease-in-out infinite;}
+
+/* PIPELINE ANIM */
+.slide.active .pipe-step{animation:popIn .4s ease forwards;opacity:0;}
+.slide.active .pipe-step:nth-child(1){animation-delay:.1s;}
+.slide.active .pipe-step:nth-child(3){animation-delay:.25s;}
+.slide.active .pipe-step:nth-child(5){animation-delay:.4s;}
+.slide.active .pipe-step:nth-child(7){animation-delay:.55s;}
+.slide.active .pipe-step:nth-child(9){animation-delay:.7s;}
+.slide.active .pipe-arrow{animation:slideRight .3s ease forwards;opacity:0;}
+.slide.active .pipe-arrow:nth-child(2){animation-delay:.18s;}
+.slide.active .pipe-arrow:nth-child(4){animation-delay:.33s;}
+.slide.active .pipe-arrow:nth-child(6){animation-delay:.48s;}
+.slide.active .pipe-arrow:nth-child(8){animation-delay:.63s;}
+
+/* SUMMARY */
+.summary-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:20px;max-width:860px;}
+.summary-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px;text-align:center;transition:transform .25s;}
+.summary-card:hover{transform:translateY(-3px);}
+.summary-card .num{font-size:28px;color:var(--accent);font-family:monospace;}
+.summary-card h3{font-size:16px;margin:6px 0 4px;}
+.summary-card p{font-size:13px;color:var(--muted);margin-top:4px;}
+.slide.active .summary-card{animation:countUp .5s ease forwards;opacity:0;}
+.slide.active .summary-card:nth-child(1){animation-delay:.05s;}
+.slide.active .summary-card:nth-child(2){animation-delay:.12s;}
+.slide.active .summary-card:nth-child(3){animation-delay:.19s;}
+.slide.active .summary-card:nth-child(4){animation-delay:.26s;}
+.slide.active .summary-card:nth-child(5){animation-delay:.33s;}
+.slide.active .summary-card:nth-child(6){animation-delay:.40s;}
+
+/* SVG ANIMATED PATHS */
+.svg-arrow{stroke-dasharray:200;stroke-dashoffset:200;}
+.slide.active .svg-arrow{animation:drawLine .6s ease forwards;}
+.slide.active .svg-arrow:nth-of-type(1){animation-delay:.3s;}
+.slide.active .svg-arrow:nth-of-type(2){animation-delay:.5s;}
+.slide.active .svg-arrow:nth-of-type(3){animation-delay:.7s;}
+.slide.active .svg-arrow:nth-of-type(4){animation-delay:.9s;}
+.svg-node{opacity:0;}
+.slide.active .svg-node{animation:popIn .4s ease forwards;}
+.slide.active .svg-node:nth-of-type(1){animation-delay:.05s;}
+.slide.active .svg-node:nth-of-type(2){animation-delay:.2s;}
+.slide.active .svg-node:nth-of-type(3){animation-delay:.4s;}
+.slide.active .svg-node:nth-of-type(4){animation-delay:.6s;}
+.slide.active .svg-node:nth-of-type(5){animation-delay:.75s;}
+
+/* ANCHOR viz */
+.anchor-col{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px;min-width:200px;}
+.anchor-col h3{font-size:14px;margin-bottom:12px;}
+.anchor-row{font-family:monospace;font-size:13px;background:var(--code-bg);border-radius:4px;padding:5px 8px;margin-bottom:6px;color:var(--text);}
+.anchor-col.gold{border-color:var(--accent);}
+
+/* HIGHLIGHT PULSE on key cards */
+.slide.active .card.highlight{animation:pulse .1s ease 1.2s 1;}
+.slide.active .card.gold-pulse{animation:pulseGreen .1s ease 1.4s 1;}
+
+/* WHO slide logos */
+.logo-badge{border-radius:6px;padding:7px 18px;font-size:15px;font-weight:bold;font-family:sans-serif;width:148px;text-align:center;transition:transform .2s;}
+.logo-badge:hover{transform:scale(1.05);}
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+<div id="progress-bar"><div id="progress-fill"></div></div>
+<div class="deck">
+
+<!-- 1: TITLE -->
+<div class="slide active" id="slide-1">
+  <div class="big-icon anim-item">🔐</div>
+  <div class="label anim-item">GDPR Compliance Series</div>
+  <h1 class="anim-item">Encryption in the<br/>Lakehouse</h1>
+  <p class="subtitle anim-item">Pseudonymization, HMAC, per-user salts, the anchor table pattern — and how GDPR deletion works without breaking your pipeline.</p>
+</div>
+
+<!-- 2: ENCRYPTION EXPLAINED -->
+<div class="slide" id="slide-2">
+  <div class="label anim-item">Fundamentals</div>
+  <h2 class="anim-item">What is Encryption?</h2>
+  <p class="anim-item">Encryption transforms readable data (plaintext) into an unreadable format (ciphertext) using a mathematical algorithm and a key. The original value can be recovered — but only by someone who holds the key.</p>
+  <div class="card-grid anim-item">
+    <div class="card">
+      <div class="tag green">Symmetric</div>
+      <h3>One Key for Both Directions</h3>
+      <ul>
+        <li>Same key encrypts <em>and</em> decrypts</li>
+        <li>Fast — suitable for large data volumes</li>
+        <li>Example: AES-256 (Delta Lake at-rest)</li>
+        <li>Risk: one leaked key exposes everything</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="tag" style="background:var(--muted)">Asymmetric</div>
+      <h3>Public Encrypts, Private Decrypts</h3>
+      <ul>
+        <li>Two mathematically linked keys</li>
+        <li>Anyone can encrypt with the public key</li>
+        <li>Only the private key holder can decrypt</li>
+        <li>Example: RSA, used in TLS / data sharing</li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout anim-item">
+    <p>🔑 Encryption is <strong>reversible</strong> — the original value can always be recovered with the right key. This makes it fundamentally different from pseudonymization.</p>
+  </div>
+</div>
+
+<!-- 3: ENC VS PSEUDO -->
+<div class="slide" id="slide-3">
+  <div class="label anim-item">Fundamentals — Getting the Terms Right</div>
+  <h2 class="anim-item">Encryption vs Pseudonymization</h2>
+  <div class="card-grid anim-item" style="max-width:860px;">
+    <div class="card">
+      <div class="tag green">Reversible</div>
+      <h3>Encryption</h3>
+      <ul>
+        <li>Original value recoverable with the key</li>
+        <li>Leak the key → all data exposed at once</li>
+        <li>Good for: data in transit, at-rest storage, fields you display back to users</li>
+        <li>Under GDPR: still fully personal data</li>
+      </ul>
+    </div>
+    <div class="card highlight">
+      <div class="tag">What We Use</div>
+      <h3>Pseudonymization (HMAC)</h3>
+      <ul>
+        <li>Original value is <strong>not recoverable</strong></li>
+        <li>Leak all salts → still cannot reverse the hash</li>
+        <li>Deterministic: same input + salt = same hash</li>
+        <li>Under GDPR: Article 25 rewards it with reduced obligations</li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout anim-item" style="max-width:860px;">
+    <p>📌 We use pseudonymization for PII in the Lakehouse. A full breach of Delta tables yields nothing without the source plaintext.</p>
+  </div>
+</div>
+
+<!-- 4: PSEUDO DEEP DIVE -->
+<div class="slide" id="slide-4">
+  <div class="label anim-item">GDPR Article 25 — Pseudonymization</div>
+  <h2 class="anim-item">Why Pseudonymization Is the Right Choice</h2>
+  <div class="card-grid anim-item" style="max-width:860px;">
+    <div class="card">
+      <h3>What it means legally</h3>
+      <ul>
+        <li>Personal data processed so it <strong>can no longer be attributed</strong> to a specific person without additional information</li>
+        <li>Salt store must be kept separately and securely</li>
+        <li>Data is still personal data — GDPR still applies</li>
+        <li>Article 25 treats it as a gold-standard technical control</li>
+      </ul>
+    </div>
+    <div class="card highlight">
+      <h3>What you gain</h3>
+      <ul>
+        <li>Reduced breach notification obligation (Recital 83)</li>
+        <li>Supports Privacy by Design (Article 25)</li>
+        <li>Crypto-erasure satisfies Right to Erasure (Article 17)</li>
+        <li>Breach of Lakehouse ≠ notifiable breach if salt store is separate</li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout anim-item">
+    <p>🔑 The salt store is the legal boundary. Keep it apart from the Lakehouse — that separation is your compliance posture.</p>
+  </div>
+</div>
+
+<!-- 5: WHAT IS HMAC -->
+<div class="slide" id="slide-5">
+  <div class="label anim-item">The Algorithm</div>
+  <h2 class="anim-item">What is HMAC?</h2>
+  <p class="anim-item"><strong>H</strong>ash-based <strong>M</strong>essage <strong>A</strong>uthentication <strong>C</strong>ode</p>
+  <div class="card-grid anim-item">
+    <div class="card">
+      <h3>How it works</h3>
+      <ul>
+        <li>Takes a <strong>value</strong> + a <strong>secret salt</strong></li>
+        <li>Produces a fixed-length hash</li>
+        <li>Same inputs → always the same output</li>
+        <li>Different salt → completely different hash</li>
+      </ul>
+    </div>
+    <div class="card highlight">
+      <h3>The security guarantee</h3>
+      <ul>
+        <li>Given hash + salt → <strong>cannot</strong> recover the original</li>
+        <li>Even if <em>all salts leak</em>, original values are safe</li>
+        <li>A leaked database without source data is useless</li>
+        <li>Joins still work — the hash is a stable fingerprint</li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout anim-item">
+    <p>🔑 HMAC("123-45-6789", salt_jitesh) → <code>"a9f3c7d2..."</code> — that arrow only ever points one way.</p>
+  </div>
+</div>
+
+<!-- 6: PER-USER SALTS -->
+<div class="slide" id="slide-6">
+  <div class="label anim-item">GDPR Architecture</div>
+  <h2 class="anim-item">Per-User Salts</h2>
+  <p class="anim-item">Each user gets their own unique salt, generated once and stored securely. Even if every salt is exposed, no attacker can reverse the hash back to the original PII.</p>
+  <div class="card-grid anim-item">
+    <div class="card">
+      <h3>🔑 Salt Store</h3>
+      <ul>
+        <li>user_id → unique random salt</li>
+        <li>Stored in secrets manager or protected Delta table</li>
+        <li>Never co-located with the encrypted data</li>
+      </ul>
+    </div>
+    <div class="card highlight">
+      <h3>Isolation by design</h3>
+      <ul>
+        <li>One leaked salt only affects one user</li>
+        <li>No single point of cryptographic failure</li>
+        <li>Breach of the Lakehouse ≠ breach of PII</li>
+        <li>Salt deletion = cryptographic erasure (GDPR Art. 17)</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 7: ENCRYPT AT BRONZE -->
+<div class="slide" id="slide-7">
+  <div class="label anim-item">Lakehouse Architecture</div>
+  <h2 class="anim-item">Encrypt at Bronze — Everything Downstream is Safe</h2>
+  <div class="pipeline anim-item">
+    <div class="pipe-step red-step">
+      <div class="ps-label">Source</div>
+      <div class="ps-name">Raw Feed<br/>(Kafka / CDC)</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step active-step" style="border-color:#c0392b;background:#fff0f0;">
+      <div class="ps-label">🔐 Encrypt Here</div>
+      <div class="ps-name">Bronze<br/>Ingest</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step">
+      <div class="ps-label">Cleansed</div>
+      <div class="ps-name">Silver<br/>Layer</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step">
+      <div class="ps-label">Aggregated</div>
+      <div class="ps-name">Gold<br/>Layer</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step">
+      <div class="ps-label">Consumers</div>
+      <div class="ps-name">BI / ML /<br/>Analysts</div>
+    </div>
+  </div>
+  <div class="callout anim-item" style="margin-top:24px;">
+    <p>✅ PII never lands in plaintext anywhere in the Lakehouse. Silver, Gold, and all consumers only ever see deterministic hashed values.</p>
+  </div>
+</div>
+
+<!-- 8: ROW BY ROW -->
+<div class="slide left-align" id="slide-8">
+  <div class="label anim-item">Implementation</div>
+  <h2 class="anim-item">Row-by-Row Encryption at Ingest</h2>
+  <div class="code-block anim-item">
+<span class="cm"># At Bronze ingest — one pattern, any table</span>
+
+<span class="k">for</span> row <span class="k">in</span> incoming_stream:
+  user_id   = row[<span class="fn">"user_id"</span>]
+  user_salt = salt_store.<span class="fn">get</span>(user_id)      <span class="cm"># lookup from secure store</span>
+
+  <span class="k">for</span> col <span class="k">in</span> pii_columns:               <span class="cm"># ["ssn", "email", "device_id", ...]</span>
+    row[col] = <span class="fn">hmac_sha256</span>(row[col], user_salt)
+
+  bronze_table.<span class="fn">write</span>(row)               <span class="cm"># only hashed values land in Delta</span>
+  </div>
+  <div class="callout anim-item">
+    <p>📌 HMAC is table-agnostic — only the <code>pii_columns</code> config changes per table. The function and salt store are universal across the entire Lakehouse.</p>
+  </div>
+</div>
+
+<!-- 9: THE DELETION PROBLEM -->
+<div class="slide" id="slide-9">
+  <div class="label anim-item">GDPR Right to Erasure — The Challenge</div>
+  <h2 class="anim-item">You Can't Reverse HMAC to Find Related Records</h2>
+  <p class="anim-item">Jitesh submits a GDPR deletion request. You know who Jitesh is. You know his salt.<br/>But <strong>you cannot recover his device IDs, emails, or phone numbers</strong> — because HMAC is one-way.</p>
+  <div class="card-grid anim-item">
+    <div class="card danger">
+      <div class="tag red">Problem</div>
+      <h3>What you can't do</h3>
+      <ul>
+        <li>Given <code>hmac(device_id, salt)</code>, you cannot get <code>device_id</code> back</li>
+        <li>You can't query <code>dim_devices WHERE device_id = ?</code></li>
+        <li>You don't know which rows across which tables belong to Jitesh</li>
+      </ul>
+    </div>
+    <div class="card highlight">
+      <div class="tag">Solution</div>
+      <h3>Store a mapping of hashed identities</h3>
+      <ul>
+        <li>Build a record linking Jitesh's hashed user ID to all his other hashed entity IDs</li>
+        <li>Must be built <em>at ingest time</em>, before you lose the plaintext</li>
+        <li>The mapping itself stores only hashed values — no plaintext PII</li>
+        <li>This is called the <strong>Anchor Table</strong></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 10: THREE APPROACHES -->
+<div class="slide" id="slide-10">
+  <div class="label anim-item">Design Options</div>
+  <h2 class="anim-item">Three Approaches to GDPR Deletion Mapping</h2>
+  <div class="card-grid-3 anim-item">
+    <div class="card danger">
+      <div class="tag red">Option 1</div>
+      <h3>Central PII Store</h3>
+      <ul>
+        <li>Store every raw PII value per user in one table</li>
+        <li>✅ Simple to reason about</li>
+        <li>❌ Massive single point of failure</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="tag" style="background:var(--muted)">Option 2</div>
+      <h3>Per-Table Mapping</h3>
+      <ul>
+        <li>Each table tracks its own user → row mapping</li>
+        <li>✅ Blast radius limited per table</li>
+        <li>❌ Easy to miss a table</li>
+      </ul>
+    </div>
+    <div class="card highlight">
+      <div class="tag">Option 3 ✅ Recommended</div>
+      <h3>Anchor Table</h3>
+      <ul>
+        <li>One table of hashed IDs only — no plaintext</li>
+        <li>Single lookup enables full deletion</li>
+        <li>✅ No PII stored; minimal exposure</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 11: WHO USES BOTH -->
+<div class="slide" id="slide-11">
+  <div class="label anim-item">Industry Adoption</div>
+  <h2 class="anim-item">Who Uses Both Encryption + Pseudonymization?</h2>
+  <p class="anim-item" style="max-width:720px;margin-bottom:20px;">Across regulated industries, the pattern is consistent: encryption secures the infrastructure layer, pseudonymization protects PII at the data layer.</p>
+  <div class="anim-item" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;max-width:860px;width:100%;">
+    <div class="card" style="text-align:center;padding:20px 16px;">
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;font-family:monospace;">Financial Services</div>
+      <div style="display:flex;flex-direction:column;gap:10px;align-items:center;">
+        <div class="logo-badge" style="background:#003087;color:#fff;">JPMorgan</div>
+        <div class="logo-badge" style="background:#ff6200;color:#fff;">ING</div>
+        <div class="logo-badge" style="background:#00a859;color:#fff;">Robinhood</div>
+      </div>
+    </div>
+    <div class="card" style="text-align:center;padding:20px 16px;">
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;font-family:monospace;">Healthcare</div>
+      <div style="display:flex;flex-direction:column;gap:10px;align-items:center;">
+        <div class="logo-badge" style="background:#005EB8;color:#fff;">NHS</div>
+        <div class="logo-badge" style="background:#0072ce;color:#fff;">Philips</div>
+        <div class="logo-badge" style="background:#e31837;color:#fff;">Roche</div>
+      </div>
+    </div>
+    <div class="card" style="text-align:center;padding:20px 16px;">
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;font-family:monospace;">Technology</div>
+      <div style="display:flex;flex-direction:column;gap:10px;align-items:center;">
+        <div class="logo-badge" style="background:#1db954;color:#fff;">Spotify</div>
+        <div class="logo-badge" style="background:#1877f2;color:#fff;">Meta</div>
+        <div class="logo-badge" style="background:#000;color:#fff;">Uber</div>
+      </div>
+    </div>
+  </div>
+  <div class="callout anim-item" style="margin-top:16px;max-width:860px;">
+    <p>📎 Public refs: Databricks GDPR + Delta Lake blog · Azure Databricks GDPR docs · k2view: Pseudonymization vs Encryption (2025)</p>
+  </div>
+</div>
+
+<!-- 12: ANCHOR TABLE -->
+<div class="slide" id="slide-12">
+  <div class="label anim-item">The Anchor Table Pattern</div>
+  <h2 class="anim-item">Linking Hashed Identities — No Plaintext Ever Stored</h2>
+  <svg viewBox="0 0 860 260" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:900px;margin-top:12px;" class="anim-item">
+    <defs>
+      <marker id="a1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#b5651d"/></marker>
+      <marker id="a2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#b5651d"/></marker>
+      <marker id="a3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#b5651d"/></marker>
+      <marker id="a4" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#b5651d"/></marker>
+    </defs>
+    <!-- Salt store -->
+    <g class="svg-node">
+      <rect x="10" y="60" width="145" height="120" rx="10" fill="#fffdf8" stroke="#ddd5c0" stroke-width="1.5"/>
+      <rect x="10" y="60" width="145" height="32" rx="10" fill="#7a6e60"/>
+      <rect x="10" y="80" width="145" height="12" fill="#7a6e60"/>
+      <text x="82" y="82" text-anchor="middle" fill="white" font-size="11" font-family="monospace" font-weight="bold">🔒 SALT STORE</text>
+      <text x="82" y="112" text-anchor="middle" font-size="11" font-family="monospace" fill="#7a6e60">user_id: "jitesh_42"</text>
+      <text x="82" y="128" text-anchor="middle" font-size="11" font-family="monospace" fill="#7a6e60">salt: "x9f2a..."</text>
+      <text x="82" y="152" text-anchor="middle" font-size="11" fill="#7a6e60" font-family="Georgia" font-style="italic">separate + secure</text>
+    </g>
+    <line class="svg-arrow" x1="157" y1="120" x2="176" y2="120" stroke="#b5651d" stroke-width="2" marker-end="url(#a1)"/>
+    <!-- HMAC -->
+    <g class="svg-node">
+      <rect x="178" y="70" width="148" height="100" rx="10" fill="#fdf6ee" stroke="#b5651d" stroke-width="2"/>
+      <rect x="178" y="70" width="148" height="30" rx="10" fill="#b5651d"/>
+      <rect x="178" y="88" width="148" height="12" fill="#b5651d"/>
+      <text x="252" y="88" text-anchor="middle" fill="white" font-size="11" font-family="monospace" font-weight="bold">HMAC FUNCTION</text>
+      <text x="252" y="116" text-anchor="middle" font-size="10" font-family="monospace" fill="#2c2416">hmac(user_id, salt)</text>
+      <text x="252" y="131" text-anchor="middle" font-size="10" font-family="monospace" fill="#2c2416">hmac(device_id, salt)</text>
+      <text x="252" y="146" text-anchor="middle" font-size="10" font-family="monospace" fill="#2c2416">hmac(email, salt)</text>
+    </g>
+    <line class="svg-arrow" x1="328" y1="120" x2="347" y2="120" stroke="#b5651d" stroke-width="2" marker-end="url(#a2)"/>
+    <!-- Anchor -->
+    <g class="svg-node">
+      <rect x="350" y="45" width="158" height="150" rx="10" fill="#fffdf8" stroke="#7a9e7e" stroke-width="2"/>
+      <rect x="350" y="45" width="158" height="30" rx="10" fill="#7a9e7e"/>
+      <rect x="350" y="63" width="158" height="12" fill="#7a9e7e"/>
+      <text x="429" y="63" text-anchor="middle" fill="white" font-size="11" font-family="monospace" font-weight="bold">⚓ ANCHOR TABLE</text>
+      <text x="429" y="94" text-anchor="middle" font-size="10" font-family="monospace" fill="#7a6e60">user_mac: "a9f3c7..."</text>
+      <text x="429" y="110" text-anchor="middle" font-size="10" font-family="monospace" fill="#7a6e60">device_mac: "b2e1f4..."</text>
+      <text x="429" y="126" text-anchor="middle" font-size="10" font-family="monospace" fill="#7a6e60">email_mac: "c7d8a2..."</text>
+      <text x="429" y="142" text-anchor="middle" font-size="10" font-family="monospace" fill="#7a6e60">phone_mac: "d1b9e3..."</text>
+      <text x="429" y="172" text-anchor="middle" font-size="11" fill="#7a9e7e" font-family="Georgia" font-style="italic">hashed only, no plaintext</text>
+    </g>
+    <line class="svg-arrow" x1="510" y1="120" x2="529" y2="120" stroke="#b5651d" stroke-width="2" marker-end="url(#a3)"/>
+    <!-- Delta tables -->
+    <g class="svg-node">
+      <text x="600" y="73" text-anchor="middle" font-size="11" font-family="monospace" fill="#7a6e60" font-weight="bold">DELTA TABLES</text>
+      <rect x="532" y="82" width="136" height="28" rx="6" fill="#fffdf8" stroke="#ddd5c0" stroke-width="1"/>
+      <text x="600" y="101" text-anchor="middle" font-size="11" font-family="monospace" fill="#2c2416">dim_devices</text>
+      <rect x="532" y="116" width="136" height="28" rx="6" fill="#fffdf8" stroke="#ddd5c0" stroke-width="1"/>
+      <text x="600" y="135" text-anchor="middle" font-size="11" font-family="monospace" fill="#2c2416">fact_transactions</text>
+      <rect x="532" y="150" width="136" height="28" rx="6" fill="#fffdf8" stroke="#ddd5c0" stroke-width="1"/>
+      <text x="600" y="169" text-anchor="middle" font-size="11" font-family="monospace" fill="#2c2416">fact_events</text>
+    </g>
+    <!-- Deletion flow note -->
+    <g class="svg-node">
+      <rect x="710" y="75" width="140" height="90" rx="8" fill="#fff5f5" stroke="#c0392b" stroke-width="1.5"/>
+      <text x="780" y="100" text-anchor="middle" font-size="12" font-family="Georgia" fill="#c0392b" font-weight="bold">🗑️ Deletion</text>
+      <text x="780" y="118" text-anchor="middle" font-size="11" font-family="Georgia" fill="#7a6e60">Look up anchor</text>
+      <text x="780" y="134" text-anchor="middle" font-size="11" font-family="Georgia" fill="#7a6e60">→ get all MACs</text>
+      <text x="780" y="150" text-anchor="middle" font-size="11" font-family="Georgia" fill="#7a6e60">→ DELETE by MAC</text>
+    </g>
+    <line class="svg-arrow" x1="670" y1="120" x2="709" y2="120" stroke="#c0392b" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#a4)"/>
+    <!-- bottom note -->
+    <rect x="10" y="218" width="840" height="36" rx="8" fill="#fdf6ee" stroke="#ddd5c0" stroke-width="1"/>
+    <text x="30" y="242" fill="#b5651d" font-size="13" font-family="Georgia">✅</text>
+    <text x="50" y="242" fill="#2c2416" font-size="12" font-family="Georgia">Salt store is the legal boundary. Lakehouse holds pseudonymous data only. Keep them apart — that's your compliance posture.</text>
+  </svg>
+</div>
+
+<!-- 13: DELETION WORKFLOW -->
+<div class="slide" id="slide-13">
+  <div class="label anim-item">End-to-End Deletion Workflow</div>
+  <h2 class="anim-item">GDPR Right to Erasure in Practice</h2>
+  <svg viewBox="0 0 860 300" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:900px;margin-top:12px;" class="anim-item">
+    <defs>
+      <marker id="da1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#b5651d"/></marker>
+      <marker id="da2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#b5651d"/></marker>
+      <marker id="da3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#7a9e7e"/></marker>
+      <marker id="da4" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#c0392b"/></marker>
+      <marker id="da5" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#c0392b"/></marker>
+    </defs>
+    <!-- Step 1 -->
+    <g class="svg-node">
+      <rect x="10" y="50" width="148" height="170" rx="10" fill="#fffdf8" stroke="#b5651d" stroke-width="2"/>
+      <rect x="10" y="50" width="148" height="32" rx="10" fill="#b5651d"/>
+      <rect x="10" y="70" width="148" height="12" fill="#b5651d"/>
+      <text x="84" y="70" text-anchor="middle" fill="white" font-size="11" font-family="monospace" font-weight="bold">STEP 1</text>
+      <text x="84" y="112" text-anchor="middle" font-size="24">📩</text>
+      <text x="84" y="145" text-anchor="middle" fill="#2c2416" font-size="13" font-family="Georgia" font-weight="bold">Receive Request</text>
+      <text x="84" y="165" text-anchor="middle" fill="#7a6e60" font-size="11" font-family="monospace">User: Jitesh</text>
+      <text x="84" y="181" text-anchor="middle" fill="#7a6e60" font-size="11" font-family="monospace">provides user_id</text>
+      <text x="84" y="204" text-anchor="middle" fill="#b5651d" font-size="10" font-family="Georgia" font-style="italic">entry point</text>
+    </g>
+    <line class="svg-arrow" x1="160" y1="135" x2="178" y2="135" stroke="#b5651d" stroke-width="2" marker-end="url(#da1)"/>
+    <!-- Step 2 -->
+    <g class="svg-node">
+      <rect x="180" y="50" width="148" height="170" rx="10" fill="#fffdf8" stroke="#b5651d" stroke-width="2"/>
+      <rect x="180" y="50" width="148" height="32" rx="10" fill="#b5651d"/>
+      <rect x="180" y="70" width="148" height="12" fill="#b5651d"/>
+      <text x="254" y="70" text-anchor="middle" fill="white" font-size="11" font-family="monospace" font-weight="bold">STEP 2</text>
+      <text x="254" y="112" text-anchor="middle" font-size="24">🔑</text>
+      <text x="254" y="145" text-anchor="middle" fill="#2c2416" font-size="13" font-family="Georgia" font-weight="bold">Compute user_mac</text>
+      <text x="254" y="165" text-anchor="middle" fill="#7a6e60" font-size="11" font-family="monospace">hmac(user_id,</text>
+      <text x="254" y="181" text-anchor="middle" fill="#7a6e60" font-size="11" font-family="monospace">salt_store.get(u))</text>
+      <text x="254" y="204" text-anchor="middle" fill="#b5651d" font-size="10" font-family="Georgia" font-style="italic">no plaintext needed</text>
+    </g>
+    <line class="svg-arrow" x1="330" y1="135" x2="348" y2="135" stroke="#7a9e7e" stroke-width="2" marker-end="url(#da3)"/>
+    <!-- Step 3 -->
+    <g class="svg-node">
+      <rect x="350" y="50" width="148" height="170" rx="10" fill="#fffdf8" stroke="#7a9e7e" stroke-width="2"/>
+      <rect x="350" y="50" width="148" height="32" rx="10" fill="#7a9e7e"/>
+      <rect x="350" y="70" width="148" height="12" fill="#7a9e7e"/>
+      <text x="424" y="70" text-anchor="middle" fill="white" font-size="11" font-family="monospace" font-weight="bold">STEP 3</text>
+      <text x="424" y="112" text-anchor="middle" font-size="24">⚓</text>
+      <text x="424" y="145" text-anchor="middle" fill="#2c2416" font-size="13" font-family="Georgia" font-weight="bold">Lookup Anchor</text>
+      <text x="424" y="165" text-anchor="middle" fill="#7a6e60" font-size="11" font-family="monospace">→ device_mac</text>
+      <text x="424" y="181" text-anchor="middle" fill="#7a6e60" font-size="11" font-family="monospace">→ email_mac ...</text>
+      <text x="424" y="204" text-anchor="middle" fill="#7a9e7e" font-size="10" font-family="Georgia" font-style="italic">all in hashed form</text>
+    </g>
+    <line class="svg-arrow" x1="500" y1="135" x2="518" y2="135" stroke="#c0392b" stroke-width="2" marker-end="url(#da4)"/>
+    <!-- Step 4 -->
+    <g class="svg-node">
+      <rect x="520" y="50" width="148" height="170" rx="10" fill="#fff5f5" stroke="#c0392b" stroke-width="2"/>
+      <rect x="520" y="50" width="148" height="32" rx="10" fill="#c0392b"/>
+      <rect x="520" y="70" width="148" height="12" fill="#c0392b"/>
+      <text x="594" y="70" text-anchor="middle" fill="white" font-size="11" font-family="monospace" font-weight="bold">STEP 4</text>
+      <text x="594" y="112" text-anchor="middle" font-size="24">🗑️</text>
+      <text x="594" y="145" text-anchor="middle" fill="#2c2416" font-size="13" font-family="Georgia" font-weight="bold">Delete from Delta</text>
+      <text x="594" y="165" text-anchor="middle" fill="#7a6e60" font-size="11" font-family="monospace">DELETE by MAC</text>
+      <text x="594" y="181" text-anchor="middle" fill="#7a6e60" font-size="11" font-family="monospace">across all tables</text>
+      <text x="594" y="204" text-anchor="middle" fill="#c0392b" font-size="10" font-family="Georgia" font-style="italic">no plaintext needed</text>
+    </g>
+    <line class="svg-arrow" x1="670" y1="135" x2="688" y2="135" stroke="#c0392b" stroke-width="2" marker-end="url(#da5)"/>
+    <!-- Step 5 -->
+    <g class="svg-node">
+      <rect x="690" y="50" width="158" height="170" rx="10" fill="#fff5f5" stroke="#c0392b" stroke-width="2"/>
+      <rect x="690" y="50" width="158" height="32" rx="10" fill="#c0392b"/>
+      <rect x="690" y="70" width="158" height="12" fill="#c0392b"/>
+      <text x="769" y="70" text-anchor="middle" fill="white" font-size="11" font-family="monospace" font-weight="bold">STEP 5</text>
+      <text x="769" y="112" text-anchor="middle" font-size="24">💣</text>
+      <text x="769" y="145" text-anchor="middle" fill="#2c2416" font-size="13" font-family="Georgia" font-weight="bold">Crypto-Erasure</text>
+      <text x="769" y="165" text-anchor="middle" fill="#7a6e60" font-size="11" font-family="monospace">Delete anchor row</text>
+      <text x="769" y="181" text-anchor="middle" fill="#7a6e60" font-size="11" font-family="monospace">+ delete salt</text>
+      <text x="769" y="204" text-anchor="middle" fill="#c0392b" font-size="10" font-family="Georgia" font-style="italic">permanent, irrecoverable</text>
+    </g>
+    <!-- bottom note -->
+    <rect x="10" y="238" width="838" height="38" rx="8" fill="#fdf6ee" stroke="#ddd5c0" stroke-width="1"/>
+    <text x="30" y="263" fill="#b5651d" font-size="13">✅</text>
+    <text x="50" y="263" fill="#2c2416" font-size="12" font-family="Georgia">Zero plaintext PII touched at any step. The Lakehouse never sees the original device ID, email, or phone — only MACs are used.</text>
+  </svg>
+</div>
+
+<!-- 14: INGEST-TIME ANCHOR -->
+<div class="slide" id="slide-14">
+  <div class="label anim-item">Critical Detail</div>
+  <h2 class="anim-item">Anchor Table Must Be Built at Ingest — Before You Lose the Plaintext</h2>
+  <svg viewBox="0 0 860 230" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:900px;margin-top:10px;" class="anim-item">
+    <defs>
+      <marker id="ia1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#b5651d"/></marker>
+      <marker id="ia2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#7a9e7e"/></marker>
+      <marker id="ia3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#c0392b"/></marker>
+    </defs>
+    <!-- RAW EVENT -->
+    <g class="svg-node">
+      <rect x="10" y="50" width="148" height="130" rx="10" fill="#fffdf8" stroke="#ddd5c0" stroke-width="1.5"/>
+      <rect x="10" y="50" width="148" height="30" rx="10" fill="#b5651d"/>
+      <rect x="10" y="68" width="148" height="12" fill="#b5651d"/>
+      <text x="84" y="68" text-anchor="middle" fill="white" font-size="11" font-family="monospace" font-weight="bold">RAW EVENT</text>
+      <text x="84" y="100" text-anchor="middle" font-size="11" font-family="monospace" fill="#7a6e60">user_id: "jitesh_42"</text>
+      <text x="84" y="116" text-anchor="middle" font-size="11" font-family="monospace" fill="#7a6e60">device_id: "dev_99"</text>
+      <text x="84" y="132" text-anchor="middle" font-size="11" font-family="monospace" fill="#7a6e60">email: "j@j.com"</text>
+      <text x="84" y="164" text-anchor="middle" font-size="10" fill="#b5651d" font-family="Georgia" font-style="italic">plaintext still available</text>
+    </g>
+    <line class="svg-arrow" x1="160" y1="115" x2="180" y2="115" stroke="#b5651d" stroke-width="2" marker-end="url(#ia1)"/>
+    <!-- SALT -->
+    <g class="svg-node">
+      <rect x="182" y="80" width="128" height="70" rx="10" fill="#fffdf8" stroke="#ddd5c0" stroke-width="1.5"/>
+      <rect x="182" y="80" width="128" height="28" rx="10" fill="#7a6e60"/>
+      <rect x="182" y="96" width="128" height="12" fill="#7a6e60"/>
+      <text x="246" y="96" text-anchor="middle" fill="white" font-size="11" font-family="monospace" font-weight="bold">🔒 SALT STORE</text>
+      <text x="246" y="124" text-anchor="middle" font-size="11" font-family="monospace" fill="#7a6e60">→ salt: "x9f2a..."</text>
+    </g>
+    <line class="svg-arrow" x1="312" y1="115" x2="332" y2="115" stroke="#b5651d" stroke-width="2" marker-end="url(#ia1)"/>
+    <!-- HMAC -->
+    <g class="svg-node">
+      <rect x="334" y="50" width="158" height="130" rx="10" fill="#fdf6ee" stroke="#b5651d" stroke-width="2"/>
+      <rect x="334" y="50" width="158" height="30" rx="10" fill="#b5651d"/>
+      <rect x="334" y="68" width="158" height="12" fill="#b5651d"/>
+      <text x="413" y="68" text-anchor="middle" fill="white" font-size="11" font-family="monospace" font-weight="bold">HMAC FUNCTION</text>
+      <text x="413" y="97" text-anchor="middle" font-size="10" font-family="monospace" fill="#2c2416">hmac(user_id, salt)</text>
+      <text x="413" y="112" text-anchor="middle" font-size="10" font-family="monospace" fill="#2c2416">hmac(device_id, salt)</text>
+      <text x="413" y="127" text-anchor="middle" font-size="10" font-family="monospace" fill="#2c2416">hmac(email, salt)</text>
+      <text x="413" y="164" text-anchor="middle" font-size="10" fill="#b5651d" font-family="Georgia" font-style="italic">applied to each PII col</text>
+    </g>
+    <!-- Split arrows -->
+    <line class="svg-arrow" x1="494" y1="90" x2="554" y2="58" stroke="#7a9e7e" stroke-width="2" marker-end="url(#ia2)"/>
+    <line class="svg-arrow" x1="494" y1="138" x2="554" y2="168" stroke="#c0392b" stroke-width="2" marker-end="url(#ia3)"/>
+    <text x="522" y="78" text-anchor="middle" font-size="10" fill="#7a9e7e" font-family="Georgia" font-style="italic" font-weight="bold">① first</text>
+    <text x="522" y="168" text-anchor="middle" font-size="10" fill="#c0392b" font-family="Georgia" font-style="italic" font-weight="bold">② then</text>
+    <!-- Anchor -->
+    <g class="svg-node">
+      <rect x="556" y="20" width="148" height="100" rx="10" fill="#fffdf8" stroke="#7a9e7e" stroke-width="2"/>
+      <rect x="556" y="20" width="148" height="28" rx="10" fill="#7a9e7e"/>
+      <rect x="556" y="36" width="148" height="12" fill="#7a9e7e"/>
+      <text x="630" y="36" text-anchor="middle" fill="white" font-size="11" font-family="monospace" font-weight="bold">⚓ ANCHOR TABLE</text>
+      <text x="630" y="62" text-anchor="middle" font-size="10" font-family="monospace" fill="#7a6e60">user_mac: "a9f3..."</text>
+      <text x="630" y="77" text-anchor="middle" font-size="10" font-family="monospace" fill="#7a6e60">device_mac: "b2e1..."</text>
+      <text x="630" y="92" text-anchor="middle" font-size="10" font-family="monospace" fill="#7a6e60">email_mac: "c7d8..."</text>
+      <text x="630" y="110" text-anchor="middle" font-size="10" fill="#7a9e7e" font-family="Georgia" font-style="italic">hashed only</text>
+    </g>
+    <!-- Bronze -->
+    <g class="svg-node">
+      <rect x="556" y="142" width="148" height="90" rx="10" fill="#fff5f5" stroke="#c0392b" stroke-width="2"/>
+      <rect x="556" y="142" width="148" height="28" rx="10" fill="#c0392b"/>
+      <rect x="556" y="158" width="148" height="12" fill="#c0392b"/>
+      <text x="630" y="158" text-anchor="middle" fill="white" font-size="11" font-family="monospace" font-weight="bold">🥉 BRONZE TABLE</text>
+      <text x="630" y="186" text-anchor="middle" font-size="10" font-family="monospace" fill="#7a6e60">user_mac: "a9f3..."</text>
+      <text x="630" y="202" text-anchor="middle" font-size="10" font-family="monospace" fill="#7a6e60">device_mac: "b2e1..."</text>
+      <text x="630" y="221" text-anchor="middle" font-size="10" fill="#c0392b" font-family="Georgia" font-style="italic">no plaintext ever</text>
+    </g>
+    <!-- After-note -->
+    <g class="svg-node">
+      <rect x="722" y="75" width="130" height="82" rx="8" fill="#fdf6ee" stroke="#ddd5c0" stroke-width="1"/>
+      <text x="787" y="96" text-anchor="middle" font-size="11" fill="#b5651d" font-family="Georgia" font-weight="bold">After this point</text>
+      <text x="787" y="112" text-anchor="middle" font-size="11" fill="#7a6e60" font-family="Georgia">plaintext is gone.</text>
+      <text x="787" y="128" text-anchor="middle" font-size="11" fill="#7a6e60" font-family="Georgia">Anchor is your</text>
+      <text x="787" y="144" text-anchor="middle" font-size="11" fill="#7a6e60" font-family="Georgia">only map.</text>
+    </g>
+    <line x1="705" y1="115" x2="721" y2="115" stroke="#ddd5c0" stroke-width="1.5" stroke-dasharray="4,3"/>
+  </svg>
+  <div class="callout anim-item">
+    <p>✅ <strong>Anchor write failures are recoverable.</strong> Because HMAC is deterministic — hmac(device_id, salt) always produces the same device_mac — the anchor can be rebuilt from source + salt store at any time. The only ops risk is Kafka retention expiring before the anchor is written.</p>
+  </div>
+</div>
+
+<!-- 15: SUMMARY -->
+<div class="slide" id="slide-15">
+  <div class="label anim-item">Summary</div>
+  <h2 class="anim-item">Key Takeaways</h2>
+  <div class="summary-grid anim-item">
+    <div class="summary-card">
+      <div class="num">01</div>
+      <h3>One-Way Hashing</h3>
+      <p>HMAC pseudonymizes PII — even with the salt you cannot reverse it</p>
+    </div>
+    <div class="summary-card">
+      <div class="num">02</div>
+      <h3>Per-User Salts</h3>
+      <p>All salts leak → still safe. Each salt only affects one user.</p>
+    </div>
+    <div class="summary-card">
+      <div class="num">03</div>
+      <h3>Encrypt at Bronze</h3>
+      <p>PII never lands in plaintext. All downstream layers inherit compliance.</p>
+    </div>
+    <div class="summary-card">
+      <div class="num">04</div>
+      <h3>Deterministic</h3>
+      <p>Hashes are stable — JOINs, GROUP BYs, and ML pipelines all still work.</p>
+    </div>
+    <div class="summary-card">
+      <div class="num">05</div>
+      <h3>Anchor Table</h3>
+      <p>Links hashed IDs — single lookup enables full GDPR deletion.</p>
+    </div>
+    <div class="summary-card">
+      <div class="num">06</div>
+      <h3>Crypto-Erasure</h3>
+      <p>Delete the salt — any remaining hashes become permanently unreadable.</p>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<div id="nav">
+  <button id="prevBtn">←</button>
+  <button id="nextBtn">→</button>
+</div>
+<div id="slide-counter"></div>
+
+<script>
+const slides = document.querySelectorAll('.slide');
+let cur = 0;
+
+function go(n) {
+  slides[cur].classList.remove('active');
+  slides[cur].classList.add('exit');
+  setTimeout(() => slides[cur].classList.remove('exit'), 450);
+  cur = (n + slides.length) % slides.length;
+  slides[cur].classList.add('active');
+  document.getElementById('slide-counter').textContent = `${cur + 1} / ${slides.length}`;
+  document.getElementById('progress-fill').style.width = `${((cur + 1) / slides.length) * 100}%`;
+}
+
+document.getElementById('nextBtn').onclick = () => go(cur + 1);
+document.getElementById('prevBtn').onclick = () => go(cur - 1);
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') go(cur + 1);
+  if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   go(cur - 1);
+});
+go(0);
+
+// Subtle floating particles in background
+const canvas = document.getElementById('bg-canvas');
+const ctx = canvas.getContext('2d');
+let W, H, particles = [];
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+for (let i = 0; i < 38; i++) {
+  particles.push({
+    x: Math.random() * window.innerWidth,
+    y: Math.random() * window.innerHeight,
+    r: Math.random() * 3 + 1,
+    dx: (Math.random() - .5) * .4,
+    dy: (Math.random() - .5) * .4,
+    o: Math.random() * .4 + .1
+  });
+}
+
+function drawParticles() {
+  ctx.clearRect(0, 0, W, H);
+  particles.forEach(p => {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(181,101,29,${p.o})`;
+    ctx.fill();
+    p.x += p.dx; p.y += p.dy;
+    if (p.x < 0) p.x = W;
+    if (p.x > W) p.x = 0;
+    if (p.y < 0) p.y = H;
+    if (p.y > H) p.y = 0;
+  });
+  requestAnimationFrame(drawParticles);
+}
+drawParticles();
+</script>
+</body>
+</html>
